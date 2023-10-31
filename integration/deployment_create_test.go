@@ -2,6 +2,7 @@ package integration
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -171,6 +172,99 @@ func TestCreateDuplicatedDeployment(t *testing.T) {
 	if err == nil {
 		t.Errorf("should fail on create duplicated deployment")
 		return
+	}
+}
+
+func TestDeleteDeployment(t *testing.T) {
+	c, err := kubeclient.NewClient(
+		kubeclient.WithURL(url),
+	)
+	if err != nil {
+		t.Errorf("should not fail on create new client: %s", err)
+	}
+
+	deployment := deployment.Deployment{
+		ID:       uuid.New(),
+		Replicas: 1,
+		Image:    "nginx",
+		Ports: []deployment.Port{
+			{
+				Name:   "http",
+				Number: 80,
+			},
+		},
+	}
+
+	_, err = c.Deployment.Create(context.Background(), deployment)
+	if err != nil {
+		t.Errorf("should not fail to create deployment: %s", err)
+		return
+	}
+
+	err = c.Deployment.Delete(context.Background(), deployment.ID)
+	if err != nil {
+		t.Errorf("should not fail on delete a deployment")
+	}
+}
+
+func TestGetDeployment(t *testing.T) {
+	c, err := kubeclient.NewClient(
+		kubeclient.WithURL(url),
+	)
+	if err != nil {
+		t.Errorf("should not fail on create new client: %s", err)
+	}
+
+	deployment := deployment.Deployment{
+		ID:       uuid.New(),
+		Replicas: 1,
+		Image:    "nginx",
+		Ports: []deployment.Port{
+			{
+				Name:   "http",
+				Number: 80,
+			},
+		},
+	}
+
+	_, err = c.Deployment.Create(context.Background(), deployment)
+	if err != nil {
+		t.Errorf("should not fail to create deployment: %s", err)
+		return
+	}
+
+	cases := map[string]struct {
+		ID    uuid.UUID
+		Error string
+	}{
+		"success get deployment": {
+			ID:    deployment.ID,
+			Error: "",
+		},
+		"error on get deployment": {
+			ID:    uuid.New(),
+			Error: fmt.Sprintf("StatusCode=%d, Message=%s", 404, "not found"),
+		},
+	}
+
+	for title, v := range cases {
+		t.Run(title, func(t *testing.T) {
+			_, err = c.Deployment.Get(context.Background(), v.ID)
+
+			if v.Error == "" {
+				if err != nil {
+					t.Errorf("should not fail on get a deployment")
+					return
+				}
+			}
+
+			if v.Error != "" {
+				if err == nil {
+					t.Errorf("want: %v", v.Error)
+					return
+				}
+			}
+		})
 	}
 }
 

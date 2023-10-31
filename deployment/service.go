@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/leonardodelira/go-lib-http/errors"
 )
 
@@ -60,6 +61,51 @@ func (s *Service) Create(ctx context.Context, deployment Deployment) (*Deploymen
 	return &createdDeploy, nil
 }
 
-func (s *Service) Delete(ctx context.Context, id string) error {
+func (s *Service) Delete(ctx context.Context, id uuid.UUID) error {
+	endpoint := fmt.Sprintf("%s/deployments/%s", s.url, id.String())
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, endpoint, nil)
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent {
+		return errors.FromHTTPResponse(resp)
+	}
+
 	return nil
+}
+
+func (s *Service) Get(ctx context.Context, id uuid.UUID) (*Deployment, error) {
+	endpoint := fmt.Sprintf("%s/deployments/%s", s.url, id.String())
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, errors.FromHTTPResponse(resp)
+	}
+
+	deployment := Deployment{}
+	if err := json.NewDecoder(resp.Body).Decode(&deployment); err != nil {
+		return nil, err
+	}
+
+	return &deployment, nil
 }
